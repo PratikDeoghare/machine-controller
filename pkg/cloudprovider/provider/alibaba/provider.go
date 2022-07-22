@@ -21,6 +21,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/signers"
 	"net/http"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
@@ -223,7 +225,7 @@ func (p *provider) Create(_ context.Context, machine *clusterv1alpha1.Machine, d
 	createInstanceRequest.InternetMaxBandwidthOut = requests.Integer(c.InternetMaxBandwidthOut)
 	encodedUserData := base64.StdEncoding.EncodeToString([]byte(userdata))
 	createInstanceRequest.UserData = encodedUserData
-	createInstanceRequest.SystemDiskCategory = c.DiskType
+	//createInstanceRequest.SystemDiskCategory = c.DiskType
 	createInstanceRequest.DataDisk = &[]ecs.CreateInstanceDataDisk{
 		{
 			Size: c.DiskSize,
@@ -406,6 +408,10 @@ func getClient(regionID, accessKeyID, accessKeySecret string) (*ecs.Client, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Alibaba cloud client: %w", err)
 	}
+	client.SetSigner(
+		signers.NewAccessKeySigner(
+			credentials.NewAccessKeyCredential(accessKeyID, accessKeySecret)))
+
 	return client, nil
 }
 
@@ -430,7 +436,6 @@ func getInstance(client *ecs.Client, instanceName string, uid string) (*ecs.Inst
 		response.GetHttpStatus() == http.StatusNotFound {
 		return nil, cloudprovidererrors.ErrInstanceNotFound
 	}
-
 	return &response.Instances.Instance[0], nil
 }
 
@@ -446,7 +451,7 @@ func (p *provider) getImageIDForOS(machineSpec clusterv1alpha1.MachineSpec, os p
 	}
 
 	request := ecs.CreateDescribeImagesRequest()
-	request.InstanceType = "ecs.sn1ne.large"
+	request.InstanceType = c.InstanceType
 	request.OSType = "linux"
 	request.Architecture = "x86_64"
 
